@@ -42,18 +42,15 @@ public class MainActivity extends AppCompatActivity
     String sAvlMotorUrl;
     String sTemperatureUrl;
     private String chk;
-    String[] BaseURL = {"http://agritronics.nstda.or.th/ws/get.php?appkey=0c5a295bd8c07a080d5306&p=AQUATIC-CONTROL-01",
-            "http://agritronics.nstda.or.th/ws/get.php?appkey=0c5a295bd8c07a080d5306&p=AQUATIC-CONTROL-02",
-            "http://agritronics.nstda.or.th/ws/get.php?appkey=0c5a295bd8c07a080d5306&p=AQUATIC-CONTROL-03",
-            "http://agritronics.nstda.or.th/ws/get.php?appkey=0c5a295bd8c07a080d5306&p=AQUATIC-CONTROL-04",
-            "http://agritronics.nstda.or.th/ws/get.php?appkey=0c5a295bd8c07a080d5306&p=AQUATIC-CONTROL-05",
-            "http://agritronics.nstda.or.th/ws/get.php?appkey=0c5a295bd8c07a080b450069e3f2&p=PAN-01",
-            "http://agritronics.nstda.or.th/ws/get.php?appkey=0c5a295bd8c07a080b450069e3f2&p=TEST-POND-CONTROL-1",
-            "http://agritronics.nstda.or.th/ws/get.php?appkey=0c5a295bd8c07a080b450069e3f2&p=TEST-POND-CONTROL-2",
-            "http://agritronics.nstda.or.th/ws/get.php?appkey=0c5a295bd8c07a080b450069e3f2&p=TEST-POND-CONTROL-3",
-            "http://agritronics.nstda.or.th/ws/get.php?appkey=0c5a295bd8c07a080b450069e3f2&p=TEST-POND-CONTROL-4",
-            "http://agritronics.nstda.or.th/ws/get.php?appkey=0c5a295bd8c07a080b450069e3f2&p=AQUATIC-CONTROL",};
-    //"http://203.185.131.92/ws/get.php?appkey=0c5a295bd8c07a080b450069e3f2&p=AQUATIC-CONTROL",};
+    String sAppKey = "0c5a295bd8c07a080d5306";
+    String[] BaseURL = {
+            "http://agritronics.nstda.or.th/ws/get.php?appkey="+sAppKey+"&p=AQUATIC-CONTROL-01",
+            "http://agritronics.nstda.or.th/ws/get.php?appkey="+sAppKey+"&p=AQUATIC-CONTROL-02",
+            "http://agritronics.nstda.or.th/ws/get.php?appkey="+sAppKey+"&p=AQUATIC-CONTROL-03",
+            "http://agritronics.nstda.or.th/ws/get.php?appkey="+sAppKey+"&p=AQUATIC-CONTROL-04",
+            "http://agritronics.nstda.or.th/ws/get.php?appkey="+sAppKey+"&p=AQUATIC-CONTROL-05"
+    };
+
     SensorInfoXML xmlDoLevel, xmlOnMotorCount, xmlTemperature;
     SensorInfoXML[] xmlMotor=new SensorInfoXML[AERATOR_NUM+1];
     SensorInfoXML xmlUsableMotorCount;
@@ -117,6 +114,7 @@ public class MainActivity extends AppCompatActivity
 
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
+            Toast.makeText(this,"setting",Toast.LENGTH_LONG).show();
             return true;
         }
 
