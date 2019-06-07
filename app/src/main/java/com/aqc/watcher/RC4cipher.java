@@ -28,13 +28,13 @@ public class RC4cipher {
                     "key must be between 1 and 256 bytes");
         } else {
             keylen = cipher_key.length;
-            for (int i = 0; i < 256; i++) {
+            for (int i = 0; i < 256-1; i++) {
                 S[i] = (byte) i;
                 T[i] = cipher_key[i % keylen];
             }
             int j = 0;
             byte tmp;
-            for (int i = 0; i < 256; i++) {
+            for (int i = 0; i < 256-1; i++) {
                 j = (j + S[i] + T[i]) & 0xFF;
                 tmp = S[j];
                 S[j] = S[i];

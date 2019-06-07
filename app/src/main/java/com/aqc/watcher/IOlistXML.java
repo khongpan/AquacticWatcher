@@ -10,24 +10,23 @@ import org.xmlpull.v1.XmlPullParserFactory;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.Date;
 
-public class SensorDailyDataXML {
+
+public class IOlistXML {
+    private int MAX_IO = 200;
     private String strUrl = null;
-    private String[] strDateTime = new String[288 * 5];
-    private String[] strValue = new String[288 * 5];
-    private Date[] mDateTime = new Date[288 * 5];
+    private String[] strNetworkId = new String[MAX_IO];
+    private String[] strRegion = new String[MAX_IO];
+    private Date[] mDateTime = new Date[MAX_IO];
     private String mIoName;
-    private String mIoType;
     private int iRecordCount;
 
     private XmlPullParserFactory xmlFactoryObject;
     private volatile boolean parsingComplete = false;
 
 
-    public SensorDailyDataXML(String url) {
+    public IOlistXML(String url) {
         this.strUrl = url;
     }
 
@@ -35,35 +34,37 @@ public class SensorDailyDataXML {
         return parsingComplete;
     }
 
-    public String[] getDatas() {
-        return strValue;
-    }
-
     public int getCountRecord() {
         return iRecordCount;
     }
 
-    public String getIoName() {
-        return mIoName;
+    public String getNetworkId(int index) {
+        return strNetworkId[index];
     }
 
-    public String getIoType() {
-        return mIoType;
+    public String getSiteName(int index) {
+        return strRegion[index];
     }
 
-    public float getDataValue(int index) {
-
-        String str = strValue[index];
-
-        return Float.parseFloat(str);
+    public String[] getNetworkId() {
+        String[] NetworkIdLists = new String[iRecordCount];
+        for (int i = 0; i < iRecordCount; i++) {
+            NetworkIdLists[i] = strNetworkId[i];
+        }
+        return NetworkIdLists;
 
     }
 
-    public Date getDataTimeStamp(int index) {
-        return mDateTime[index];
+    public String[] getSiteName() {
+        String[] siteNameLists = new String[iRecordCount];
+        for (int i = 0; i < iRecordCount; i++) {
+            siteNameLists[i] = strRegion[i];
+        }
+        return siteNameLists;
     }
 
-    public void parseXML(XmlPullParser myParser) {
+
+    private void parseXML(XmlPullParser myParser) {
         int event, i = 0;
         String text = null;
         try {
@@ -72,24 +73,23 @@ public class SensorDailyDataXML {
                 String name = myParser.getName();
                 switch (event) {
                     case XmlPullParser.START_TAG:
-                        if (name.equals("IO")) {
-                            mIoName = myParser.getAttributeValue(null, "Name");
-                            mIoType = myParser.getAttributeValue(null, "Type");
-                        }
                         break;
                     case XmlPullParser.TEXT:
                         text = myParser.getText();
                         break;
                     case XmlPullParser.END_TAG:
                         switch (name) {
-                            case "Value":
-                                strValue[i] = text;
-                                i++;
-                                iRecordCount++;
+                            case "IONumber":
+                                if (text.equals("300")) iRecordCount++;
                                 break;
-                            case "IODateTime":
-                                strDateTime[i] = text;
-                                mDateTime[i] = convertStringToDate(text);
+                            case "Region":
+                                strRegion[i] = text;
+                                break;
+                            case "NetworkID":
+                                strNetworkId[i] = text;
+                                break;
+                            case "IO":
+                                i = iRecordCount;
                                 break;
                         }
                         break;
@@ -135,16 +135,5 @@ public class SensorDailyDataXML {
         thread.start();
     }
 
-    public static Date convertStringToDate(String date) {
-        SimpleDateFormat FORMATTER = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        if (date != null) {
-            try {
-                return FORMATTER.parse(date);
-            } catch (ParseException e) {
-                // nothing we can do if the input is invalid
-                throw new RuntimeException(e);
-            }
-        }
-        return null;
-    }
+
 }

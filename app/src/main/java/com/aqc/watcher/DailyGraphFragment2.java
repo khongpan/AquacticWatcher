@@ -1,5 +1,7 @@
 package com.aqc.watcher;
 
+import android.support.v4.app.Fragment;
+//import android.app.Fragment;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -12,7 +14,6 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
-import android.support.v4.app.Fragment;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -29,16 +30,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-
-/**
- * A simple {@link Fragment} subclass.
- * Activities that contain this fragment must implement the
- * {@link DailyGraphFragment.OnFragmentInteractionListener} interface
- * to handle interaction events.
- * Use the {@link DailyGraphFragment#newInstance} factory method to
- * create an instance of this fragment.
- */
-public class DailyGraphFragment extends Fragment {
+public class DailyGraphFragment2 extends Fragment {
     // TODO: Rename parameter arguments, choose names that match
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
     private static final String ARG_PARAM1 = "param1";
@@ -51,30 +43,33 @@ public class DailyGraphFragment extends Fragment {
     Date date = new Date();
     String mStrSelectedDay = new SimpleDateFormat("yyyy-MM-dd").format(date);
 
-    private String mBaseUrl;
-    private int mSelectedPond;
-    private String mStrGraphGroup;
+    //private String mBaseUrl;
+    //private int mSelectedPond;
+    //private String mStrGraphGroup;
+    private String[] mUrls;
+    private int mPlotsNum = 0;
 
-    private OnFragmentInteractionListener mListener;
+    private DailyGraphFragment2.OnFragmentInteractionListener mListener;
 
     private final Handler mHandler = new Handler();
     private Runnable mTimer1;
     private Runnable mTimer2;
 
-    private LineGraphSeries<DataPoint> mSeries1;
-    private LineGraphSeries<DataPoint> mSeries2;
-    private LineGraphSeries<DataPoint> mSeries3;
     private GraphView mGraphView;
+    //private LineGraphSeries<DataPoint> mSeries1;
+    //private LineGraphSeries<DataPoint> mSeries2;
+    //private LineGraphSeries<DataPoint> mSeries3;
+    private LineGraphSeries<DataPoint>[] mSeries;
+
+    //private SensorDailyDataXML sensorXml1;
+    //private SensorDailyDataXML sensorXml2;
+    //private SensorDailyDataXML sensorXml3;
+    private SensorDailyDataXML[] mSensorsXml;
+
+    private int[] mColorsList = {Color.BLUE,Color.GREEN,Color.RED,Color.MAGENTA,Color.YELLOW,Color.CYAN};
 
 
-    private SensorDailyDataXML sensorXml1;
-    private SensorDailyDataXML sensorXml2;
-    private SensorDailyDataXML sensorXml3;
-
-
-
-
-    public DailyGraphFragment() {
+    public DailyGraphFragment2() {
         // Required empty public constructor
     }
 
@@ -87,8 +82,8 @@ public class DailyGraphFragment extends Fragment {
      * @return A new instance of fragment DailyGraphFragment.
      */
     // TODO: Rename and change types and number of parameters
-    public static DailyGraphFragment newInstance(String param1, String param2) {
-        DailyGraphFragment fragment = new DailyGraphFragment();
+    public static DailyGraphFragment2 newInstance(String param1, String param2) {
+        DailyGraphFragment2 fragment = new DailyGraphFragment2();
         Bundle args = new Bundle();
         //args.putString(ARG_PARAM1, param1);
         //args.putString(ARG_PARAM2, param2);
@@ -102,9 +97,15 @@ public class DailyGraphFragment extends Fragment {
         if (getArguments() != null) {
             //mParam1 = getArguments().getString(ARG_PARAM1);
             //mParam2 = getArguments().getString(ARG_PARAM2);
-            mBaseUrl = getArguments().getString("BASE_URL");
-            mSelectedPond = getArguments().getInt("SELECTED_POND", 0);
-            mStrGraphGroup = getArguments().getString("GRAPH_GROUP");
+            //mBaseUrl = getArguments().getString("BASE_URL");
+            //mSelectedPond = getArguments().getInt("SELECTED_POND", 0);
+            //mStrGraphGroup = getArguments().getString("GRAPH_GROUP");
+            mPlotsNum = getArguments().getInt("plots_num");
+            mUrls = new String[mPlotsNum];
+            mSeries = new LineGraphSeries[mPlotsNum];
+            for (int i = 0; i < mPlotsNum; i++) {
+                mUrls[i] = getArguments().getString(String.format("url%d", i));
+            }
 
         }
     }
@@ -134,8 +135,8 @@ public class DailyGraphFragment extends Fragment {
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
-        if (context instanceof OnFragmentInteractionListener) {
-            mListener = (OnFragmentInteractionListener) context;
+        if (context instanceof DailyGraphFragment2.OnFragmentInteractionListener) {
+            mListener = (DailyGraphFragment2.OnFragmentInteractionListener) context;
         } else {
             throw new RuntimeException(context.toString()
                     + " must implement OnFragmentInteractionListener");
@@ -147,6 +148,7 @@ public class DailyGraphFragment extends Fragment {
         super.onDetach();
         mListener = null;
     }
+
     @Override
     public void onResume() {
         super.onResume();
@@ -186,12 +188,8 @@ public class DailyGraphFragment extends Fragment {
         // set manual Y bounds
         mGraphView.getViewport().setYAxisBoundsManual(true);
         mGraphView.getViewport().setMinY(0);
-        mGraphView.getViewport().setMaxY(16);
+        mGraphView.getViewport().setMaxY(20);
 
-        if (mStrGraphGroup.equals("TEMPERATURE")){
-            mGraphView.getViewport().setMinY(19);
-            mGraphView.getViewport().setMaxY(35);
-        }
 
         //mGraphView.getViewport().setScrollable(true);
 
@@ -214,12 +212,11 @@ public class DailyGraphFragment extends Fragment {
         // set manual x bounds to have nice steps
         SimpleDateFormat date_formatter = new SimpleDateFormat("yyyy-MM-dd");
         Date start_time = new Date();
-        Date end_time= new Date();
+        Date end_time = new Date();
         try {
             start_time = date_formatter.parse(mStrSelectedDay);
-            end_time.setTime(start_time.getTime()+1000*60*60*24);
-        }    catch (Exception e)
-        {
+            end_time.setTime(start_time.getTime() + 1000 * 60 * 60 * 24);
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
@@ -227,67 +224,39 @@ public class DailyGraphFragment extends Fragment {
         mGraphView.getViewport().setMaxX(end_time.getTime());
         mGraphView.getViewport().setXAxisBoundsManual(true);
 
+        for (int i = 0; i < mPlotsNum; i++) {
+            mSeries[i] = new LineGraphSeries<DataPoint>(new DataPoint[]{new DataPoint(0, 0), new DataPoint(0, 0)});
 
-        mSeries1 = new LineGraphSeries<DataPoint>(new DataPoint[] {new DataPoint(0,0), new DataPoint (0,0)});
-        mSeries2 = new LineGraphSeries<DataPoint>(new DataPoint[] {new DataPoint(0,0), new DataPoint (0,0)});
+            //mSeries[i].setTitle("series 1");
+            mSeries[i].setColor(mColorsList[i%mColorsList.length]);
+            mSeries[i].setThickness(2);
 
-        mSeries1.setTitle("series 1");
-        mSeries1.setColor(Color.BLUE);
-        mSeries1.setThickness(2);
-
-        mSeries2.setTitle("series 2");
-        mSeries2.setColor(Color.RED);
-        mSeries2.setThickness(2);
-
-        mGraphView.addSeries(mSeries1);
-        mGraphView.addSeries(mSeries2);
+            mGraphView.addSeries(mSeries[i]);
+        }
     }
 
     public void updateSeriesData() {
-        {
+        int p;
+        DataPoint[] dataPoint;
 
-            DataPoint[] dataPoint;
-            int data_count=sensorXml1.getCountRecord();
+        for (p = 0; p < mPlotsNum; p++) {
+            int data_count = mSensorsXml[p].getCountRecord();
 
-            if (data_count>0) {
-                dataPoint = new DataPoint[sensorXml1.getCountRecord()];
-                for (int i = 0; i < sensorXml1.getCountRecord(); i++) {
-                    DataPoint v = new DataPoint(sensorXml1.getDataTimeStamp(i), sensorXml1.getDataValue(i));
+            if (data_count > 0) {
+                dataPoint = new DataPoint[mSensorsXml[p].getCountRecord()];
+                for (int i = 0; i < mSensorsXml[p].getCountRecord(); i++) {
+                    DataPoint v = new DataPoint(mSensorsXml[p].getDataTimeStamp(i), mSensorsXml[p].getDataValue(i));
                     dataPoint[i] = v;
                 }
                 if (dataPoint == null)
                     dataPoint = new DataPoint[]{new DataPoint(0, 0), new DataPoint(0, 0)};
 
             } else {
-                dataPoint = new DataPoint[] {new DataPoint(0,0)};
+                dataPoint = new DataPoint[]{new DataPoint(0, 0)};
             }
-            mSeries1.resetData(dataPoint);
+            mSeries[p].resetData(dataPoint);
+            mSeries[p].setTitle(mSensorsXml[p].getIoName());
         }
-
-        {
-            DataPoint[] dataPoint;
-            int data_count=sensorXml2.getCountRecord();
-
-            if (data_count>0) {
-
-                dataPoint = new DataPoint[sensorXml2.getCountRecord()];
-
-
-                for (int i = 0; i < sensorXml2.getCountRecord(); i++) {
-                    DataPoint v = new DataPoint(sensorXml2.getDataTimeStamp(i), sensorXml2.getDataValue(i));
-                    dataPoint[i] = v;
-                }
-
-
-            } else {
-                dataPoint = new DataPoint[]{new DataPoint(0, 0), new DataPoint(0, 0)};
-            }
-            mSeries2.resetData(dataPoint);
-        }
-
-        mSeries1.setTitle(sensorXml1.getIoName());
-        mSeries2.setTitle(sensorXml2.getIoName());
-
         //mGraphView.removeAllSeries();
         //mGraphView.addSeries(mSeries1);
         //mGraphView.addSeries(mSeries2);
@@ -307,25 +276,40 @@ public class DailyGraphFragment extends Fragment {
         // set manual x bounds to have nice steps
         SimpleDateFormat date_formatter = new SimpleDateFormat("yyyy-MM-dd");
         Date start_time = new Date();
-        Date end_time= new Date();
+        Date end_time = new Date();
         try {
             start_time = date_formatter.parse(mStrSelectedDay);
-            end_time.setTime(start_time.getTime()+1000*60*60*24+1);
-        }    catch (Exception e)
-        {
+            end_time.setTime(start_time.getTime() + 1000 * 60 * 60 * 24 + 1);
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
         mGraphView.getViewport().setMinX(start_time.getTime());
         mGraphView.getViewport().setMaxX(end_time.getTime());
         mGraphView.getViewport().setXAxisBoundsManual(true);
+        if(mSensorsXml[0].getCountRecord()>0) {
+
+            if (mSensorsXml[0].getIoType().contains("Temp")) {
+                mGraphView.getViewport().setMinY(15);
+                mGraphView.getViewport().setMaxY(45);
+                mGraphView.getGridLabelRenderer().setNumVerticalLabels(16);
+                mGraphView.getGridLabelRenderer().setHumanRounding(false, true);
+            } else if (mSensorsXml[0].getIoType().contains("Oxygen")) {
+                mGraphView.getViewport().setMinY(0);
+                mGraphView.getViewport().setMaxY(16);
+                mGraphView.getGridLabelRenderer().setNumVerticalLabels(9);
+                mGraphView.getGridLabelRenderer().setHumanRounding(false, true);
+            } else if (mSensorsXml[0].getIoType().contains("Alkalinity")) {
+                mGraphView.getViewport().setMinY(3);
+                mGraphView.getViewport().setMaxY(11);
+                mGraphView.getGridLabelRenderer().setNumVerticalLabels(9);
+                mGraphView.getGridLabelRenderer().setHumanRounding(false, true);
+            }
+        }
+
+
         //mGraphView.getViewport().setScalable(true);
         //mGraphView.getViewport().setScrollable(true);
-
-
-
-
-
 
 
     }
@@ -334,9 +318,6 @@ public class DailyGraphFragment extends Fragment {
         mStrSelectedDay = date_str;
     }
 
-    void setGraphGroup(String group_str) {
-        mStrGraphGroup = group_str;
-    }
 
     public boolean checkInternetConnection() {
 
@@ -345,19 +326,19 @@ public class DailyGraphFragment extends Fragment {
         ConnectivityManager cManager = (ConnectivityManager) getActivity().getSystemService(Context.CONNECTIVITY_SERVICE);
         NetworkInfo nInfo = cManager.getActiveNetworkInfo();
 
-        if(nInfo==null) {
-            Toast.makeText(getActivity() , "No Internet connection! Please connect to the Internet.", Toast.LENGTH_LONG).show();
+        if (nInfo == null) {
+            Toast.makeText(getActivity(), "No Internet connection! Please connect to the Internet.", Toast.LENGTH_LONG).show();
         } else {
-            have_connection=true;
+            have_connection = true;
         }
         return have_connection;
     }
 
     void updateGraph() {
 
-        if (checkInternetConnection()==false) return;
+        if (checkInternetConnection() == false) return;
 
-        DownloadFromInternet Downloader = new DownloadFromInternet();
+        DailyGraphFragment2.DownloadFromInternet Downloader = new DailyGraphFragment2.DownloadFromInternet();
         Downloader.execute("100", mStrSelectedDay);
     }
 
@@ -374,6 +355,7 @@ public class DailyGraphFragment extends Fragment {
         //getActivity().setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR);
         getActivity().setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
     }
+
     // Async Task Class
     class DownloadFromInternet extends AsyncTask<String, String, String> {
         ProgressDialog progressDialog;
@@ -405,58 +387,33 @@ public class DailyGraphFragment extends Fragment {
         // Download xml from Internet
         @Override
         protected String doInBackground(String... str) {
-            int count=1;
+            int count = 1;
+            int i;
             try {
                 DataPoint[] dataPoint;
-                String finalUrl1,finalUrl2;
+                String finalUrl1, finalUrl2;
                 String io_number = str[0];
                 String date_str = str[1];
 
+                mSensorsXml = new SensorDailyDataXML[mPlotsNum];
 
-                if (mStrGraphGroup.equals("DO_PROBE")) {
-                    finalUrl1 = mBaseUrl + ",4096," + "100" + "," + date_str;
-                    finalUrl2 = mBaseUrl + ",4096," + "101" + "," + date_str;
-                } else {
-                    finalUrl1 = mBaseUrl + ",4096," + "1505" + "," + date_str;
-                    finalUrl2 = mBaseUrl + ",4096," + "1506" + "," + date_str;
+                for (i = 0; i < mPlotsNum; i++) {
+                    //mUrls[i] = mUrls[i] + "," + date_str;
+                    mSensorsXml[i] = new SensorDailyDataXML(mUrls[i]+","+date_str);
+                    mSensorsXml[i].fetchXML(mUrls[i]+","+date_str);
                 }
-
-
-                if (mBaseUrl.contains("AQUATIC-CONTROL")) {
-                    finalUrl1 = mBaseUrl + ",4096," + "300" + "," + date_str;
-                    finalUrl2 = mBaseUrl + ",4096," + "301" + "," + date_str;
+                boolean fetch_complete = false;
+                while (!fetch_complete) {
+                    fetch_complete = true;
+                    for (i = 0; i < mPlotsNum; i++) {
+                        if (!mSensorsXml[i].isFetchComplete()) {
+                            fetch_complete = false;
+                        }
+                        Thread.sleep(1000);
+                        publishProgress("" + count++);
+                        if (cancel) break;
+                    }
                 }
-
-                if (mStrGraphGroup.equals("TEMPERATURE")) {
-                    finalUrl1 = mBaseUrl + ",4096," + "304" + "," + date_str;
-                    finalUrl2 = mBaseUrl + ",4096," + "305" + "," + date_str;
-
-                }
-
-
-                    sensorXml1 = new SensorDailyDataXML(finalUrl1);
-                sensorXml1.fetchXML(finalUrl1);
-
-
-
-                sensorXml2 = new SensorDailyDataXML(finalUrl2);
-                sensorXml2.fetchXML(finalUrl2);
-
-                while (!sensorXml1.isFetchComplete()){
-                    // Publish the progress which triggers onProgressUpdate method
-                    Thread.sleep(1000);
-                    publishProgress("" + count++);
-
-                    if (cancel) break;
-
-
-                }
-                while (!sensorXml2.isFetchComplete()) {
-                    if (cancel) break;
-                }
-
-
-
 
             } catch (Exception e) {
                 Log.e("Error: ", e.getMessage());
@@ -482,7 +439,6 @@ public class DailyGraphFragment extends Fragment {
                 unlockScreenOrientation();
                 return;
             }
-
             updateSeriesData();
             unlockScreenOrientation();
         }
@@ -498,10 +454,10 @@ public class DailyGraphFragment extends Fragment {
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
 
-        if (savedInstanceState!=null) {
+        if (savedInstanceState != null) {
             mStrSelectedDay = savedInstanceState.getString("STR_SELECTED_DAY");
         }
-        if (mStrSelectedDay==null) {
+        if (mStrSelectedDay == null) {
             mStrSelectedDay = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
         }
         formatPlotArea();
@@ -520,4 +476,5 @@ public class DailyGraphFragment extends Fragment {
         }
         return null;
     }
+
 }

@@ -26,26 +26,50 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity
-        implements PondLayoutFragment.OnFragmentInteractionListener{
+        implements PondLayoutFragment.OnFragmentInteractionListener {
 
-    final int AERATOR_NUM=20;
-    boolean mDownloadCancel;
-    Button mBtnDoLevel, mBtnOnMotorCount, mBtnRefresh, mBtnUsableMotor;
-    Button mBtnTemperature;
-    TextView tv;
-    TextView[] mAerator =new TextView[AERATOR_NUM+1];
-    String url1,url2;
-    String[] sMotorUrl= new String[AERATOR_NUM+1];
-    String sAvlMotorUrl;
-    String sTemperatureUrl;
-    private String chk;
-    String[] BaseURL = {"http://agritronics.nstda.or.th/ws/get.php?appkey=0c5a295bd8c07a080d5306&p=AQUATIC-CONTROL-01",
-            "http://agritronics.nstda.or.th/ws/get.php?appkey=0c5a295bd8c07a080d5306&p=AQUATIC-CONTROL-02",
-            "http://agritronics.nstda.or.th/ws/get.php?appkey=0c5a295bd8c07a080d5306&p=AQUATIC-CONTROL-03",
-            "http://agritronics.nstda.or.th/ws/get.php?appkey=0c5a295bd8c07a080d5306&p=AQUATIC-CONTROL-04",
+    final int PH_NUM = 4;
+    final int DO_NUM = 4;
+    final int T_NUM = 4;
+    final int SENSOR_NUM = PH_NUM + DO_NUM + T_NUM;
+
+
+
+
+    Spinner mSpnSitesList;
+    //Button mBtnDoLevel;
+    Button mBtnRefresh;
+    //Button[] mBtnPh = new Button[PH_NUM];
+    //Button[] mBtnDo = new Button[DO_NUM];
+    Button[] mBtnSensor = new Button[SENSOR_NUM];
+    //Button mBtnTemperature;
+    TextView mTvDateTime;
+    String strWebGetKey;
+    List<String> mSitesList;
+    static boolean mSitesListReady = false;
+    private String[] strSitesName;
+    int SelectedPond;
+    private String[] strNetworkIDs;
+    AgritronicsWebHelper AgWeb = AgritronicsWebHelper.getInstance();
+    AppPreferences mPref;
+
+    SensorInfoXML[] mXmlSensors = new SensorInfoXML[SENSOR_NUM];
+    IOlistXML xmlIoList;
+    boolean mUpdating=false;
+
+    //username: aqc000
+    // password: aqc000
+
+    String[] BaseURL = {"http://agritronics.nstda.or.th/ws/get.php?appkey=0c5a295bd8c07a0809511130b0a3&p=AQUATIC-CONTROL-01",
+            "http://agritronics.nstda.or.th/ws/get.php?appkey=0c5a295bd8c07a0809511130b0a3&p=AQUATIC-CONTROL-02",
+            "http://agritronics.nstda.or.th/ws/get.php?appkey=0c5a295bd8c07a0809511130b0a3&p=AQUATIC-CONTROL-03",
+            "http://agritronics.nstda.or.th/ws/get.php?appkey=0c5a295bd8c07a0809511130b0a3&p=AQUATIC-CONTROL-04",
             "http://agritronics.nstda.or.th/ws/get.php?appkey=0c5a295bd8c07a080d5306&p=AQUATIC-CONTROL-05",
             "http://agritronics.nstda.or.th/ws/get.php?appkey=0c5a295bd8c07a080b450069e3f2&p=PAN-01",
             "http://agritronics.nstda.or.th/ws/get.php?appkey=0c5a295bd8c07a080b450069e3f2&p=TEST-POND-CONTROL-1",
@@ -53,50 +77,14 @@ public class MainActivity extends AppCompatActivity
             "http://agritronics.nstda.or.th/ws/get.php?appkey=0c5a295bd8c07a080b450069e3f2&p=TEST-POND-CONTROL-3",
             "http://agritronics.nstda.or.th/ws/get.php?appkey=0c5a295bd8c07a080b450069e3f2&p=TEST-POND-CONTROL-4",
             "http://agritronics.nstda.or.th/ws/get.php?appkey=0c5a295bd8c07a080b450069e3f2&p=AQUATIC-CONTROL",};
+    private ArrayAdapter<String> mSitesListAdapter;
     //"http://203.185.131.92/ws/get.php?appkey=0c5a295bd8c07a080b450069e3f2&p=AQUATIC-CONTROL",};
-    SensorInfoXML xmlDoLevel, xmlOnMotorCount, xmlTemperature;
-    SensorInfoXML[] xmlMotor=new SensorInfoXML[AERATOR_NUM+1];
-    SensorInfoXML xmlUsableMotorCount;
-
-    private String[] strPondsName;
-    int SelectedPond;
-
-    PondLayoutFragment pondLayoutFragment;
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        if (findViewById(R.id.layoutPond) != null) {
-
-            // Create a new Fragment to be placed in the activity layout
-            //DailyGraphFragment dailyGraphFragment = new DailyGraphFragment();
-
-
-
-            pondLayoutFragment = new PondLayoutFragment();
-
-
-            // In case this activity was started with special instructions from an
-            // Intent, pass the Intent's extras to the fragment as arguments
-
-
-            //pondLayoutFragment.setArguments(getIntent().getExtras());
-            Bundle arg= new Bundle();
-
-            arg.putString("BASE_URL",BaseURL[SelectedPond]);
-            arg.putInt("SELECTED_POND",SelectedPond);
-            arg.putString("GRAPH_GROUP", new String("AERATOR_STATUS"));
-
-
-            pondLayoutFragment.setArguments(arg);
-
-            // Add the fragment to the 'fragment_container' FrameLayout
-            getSupportFragmentManager().beginTransaction()
-                    .add(R.id.layoutPond, pondLayoutFragment).commit();
-        }
 
         StartApp();
     }
@@ -117,6 +105,8 @@ public class MainActivity extends AppCompatActivity
 
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
+            //Toast.makeText(this, "setting", Toast.LENGTH_LONG).show();
+            launchSetting();
             return true;
         }
 
@@ -124,454 +114,235 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void StartApp() {
-        tv = (TextView) findViewById(R.id.txtDate);
+        mPref = AppPreferences.getInstance(this);
+        mTvDateTime = (TextView) findViewById(R.id.txtDate);
         mBtnRefresh = (Button) findViewById(R.id.btnRefresh);
-        mBtnDoLevel = (Button) findViewById(R.id.btnDOL);
-        mBtnTemperature = (Button) findViewById(R.id.btnTemperature);
-        mBtnOnMotorCount = (Button) findViewById(R.id.btnOMC);
 
-        mBtnUsableMotor = (Button) findViewById(R.id.btUsableAerator);
-        mAerator[1] = (TextView) findViewById(R.id.btM1);
-        mAerator[2] = (TextView) findViewById(R.id.btM2);
-        mAerator[3] = (TextView) findViewById(R.id.btM3);
-        mAerator[4] = (TextView) findViewById(R.id.btM4);
-        mAerator[5] = (TextView) findViewById(R.id.btM5);
-        mAerator[6] = (TextView) findViewById(R.id.btM6);
-        mAerator[7] = (TextView) findViewById(R.id.btM7);
-        mAerator[8] = (TextView) findViewById(R.id.btM8);
-        mAerator[9] = (TextView) findViewById(R.id.btM9);
-        mAerator[10] = (TextView) findViewById(R.id.btM10);
-        mAerator[11] = (TextView) findViewById(R.id.btM11);
-        mAerator[12] = (TextView) findViewById(R.id.btM12);
-        mAerator[13] = (TextView) findViewById(R.id.btM13);
-        mAerator[14] = (TextView) findViewById(R.id.btM14);
-        mAerator[15] = (TextView) findViewById(R.id.btM15);
-        mAerator[16] = (TextView) findViewById(R.id.btM16);
-        mAerator[17] = (TextView) findViewById(R.id.btM17);
-        mAerator[18] = (TextView) findViewById(R.id.btM18);
-        mAerator[19] = (TextView) findViewById(R.id.btM19);
-        mAerator[20] = (TextView) findViewById(R.id.btM20);
+        mSitesListReady=false;
+        mSpnSitesList = findViewById(R.id.spnPond);
+        strSitesName = getResources().getStringArray(R.array.type);
+        mSitesList = new ArrayList<>(Arrays.asList(strSitesName));
 
-        //ConnectivityManager cManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
-        //NetworkInfo nInfo = cManager.getActiveNetworkInfo();
+        ArrayList list = mPref.getStringArrayPref("SitesList");
+        if (list != null) mSitesList = list;
 
-        //if(nInfo==null) {
-        //   Toast.makeText(this, "No Internet connection! Please connect to the Internet.", Toast.LENGTH_LONG).show();
-        //}else
-        {
-            Spinner spntype = (Spinner) findViewById(R.id.spnPond);
-            strPondsName = getResources().getStringArray(R.array.type);
-            ArrayAdapter<String> objAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, strPondsName);
-            spntype.setAdapter(objAdapter);
+        //ArrayAdapter<String> objAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, mSitesList);
+        mSitesListAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, mSitesList);
+        mSpnSitesList.setAdapter(mSitesListAdapter);
 
-            SharedPreferences sp = getSharedPreferences("PondWatcher", MODE_PRIVATE);
-            int selected_pond = sp.getInt("SelectedPond",1);
-            spntype.setSelection(selected_pond);
-            //spntype.setSelection(objAdapter.getPosition("AQUA DEMO1"));
-            spntype.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-                @Override
-                public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
-                    int i;
+        SharedPreferences sp = getSharedPreferences("PondWatcher", MODE_PRIVATE);
+        int selected_pond = sp.getInt("SelectedPond", 1);
+        strWebGetKey = sp.getString("WebGetKey", "no_key");
+        if (selected_pond >= mSitesList.size()) selected_pond = 0;
+        mSpnSitesList.setSelection(selected_pond);
+        //spnSites.setSelection(objAdapter.getPosition("AQUA DEMO1"));
+        mSpnSitesList.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
+                int i;
+                SharedPreferences sp = getSharedPreferences("PondWatcher", MODE_PRIVATE);
+                SharedPreferences.Editor sp_editor = sp.edit();
+                sp_editor.putInt("SelectedPond", pos);
+                sp_editor.apply();
+                SelectedPond = pos;
+                updateView();
+            }
 
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                //SelectedPond=0;
+            }
+        });
 
-                    SharedPreferences sp = getSharedPreferences("PondWatcher", MODE_PRIVATE);
-                    SharedPreferences.Editor sp_editor = sp.edit();
-                    sp_editor.putInt("SelectedPond", pos);
-                    sp_editor.apply();
+        mBtnRefresh.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                updateView();
+            }
+        });
+        int i = 0;
+        mBtnSensor[i++] = findViewById(R.id.btnDo0);
+        mBtnSensor[i++] = findViewById(R.id.btnDo1);
+        mBtnSensor[i++] = findViewById(R.id.btnDo2);
+        mBtnSensor[i++] = findViewById(R.id.btnDo3);
+        mBtnSensor[i++] = findViewById(R.id.btnPh0);
+        mBtnSensor[i++] = findViewById(R.id.btnPh1);
+        mBtnSensor[i++] = findViewById(R.id.btnPh2);
+        mBtnSensor[i++] = findViewById(R.id.btnPh3);
+        mBtnSensor[i++] = findViewById(R.id.btnTemperature0);
+        mBtnSensor[i++] = findViewById(R.id.btnTemperature1);
+        mBtnSensor[i++] = findViewById(R.id.btnTemperature2);
+        mBtnSensor[i++] = findViewById(R.id.btnTemperature3);
+        //mBtnSensor[i++]=findViewById(getResources().getIdentifier("btnTemperature" , "id", getPackageName()));
 
-                    url1 = BaseURL[pos] + ",4096,1505";
-                    url2 = BaseURL[pos] + ",4096,1506";
-
-                    if(BaseURL[pos].contains("AQUATIC-CONTROL"))
-                    {
-                        url1 = BaseURL[pos] + ",4096,300";
-                        sTemperatureUrl = BaseURL[pos] + ",4096,304";
-                    }
-                    sAvlMotorUrl = BaseURL[pos] + ",4096,1507";
-
-                    for (i = 1; i <= AERATOR_NUM; i++) {
-                        sMotorUrl[i] = BaseURL[pos];
-
-                    }
-
-                    SelectedPond = pos;
-                    int ionumber = 1520;
-
-                    for (i = 1; i <= AERATOR_NUM; i++) {
-                        sMotorUrl[i] = BaseURL[pos] + ",4096," + String.valueOf(ionumber);
-                        ionumber++;
-                    }
-
-                    updateView();
-
-                }
-
-
-                @Override
-                public void onNothingSelected(AdapterView<?> parent) {
-                    //SelectedPond=0;
-                }
-            });
-
-            mBtnRefresh.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    updateView();
-                }
-            });
-
-            mBtnDoLevel.setOnLongClickListener(new View.OnLongClickListener() {
-                @Override
-                public boolean onLongClick(View v) {
-                    launchDailyGraph(v);
-                    return true;
-                }
-            });
-
-            mBtnTemperature.setOnClickListener(new View.OnClickListener() {
+        for (i = 0; i < SENSOR_NUM; i++) {
+            mBtnSensor[i].setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
-                    launchTemperatureDailyGraph(view);
+                    //launchTemperatureDailyGraph(view);
+                    String btn_name;
+                    String[] urls=new String[1];
+                    Button Btn;
 
-                }
-            });
+                    Btn = findViewById(view.getId());
+                    if (Btn.getText().equals("-")) return;
 
-            mBtnOnMotorCount.setOnClickListener( new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    launchAeratorGraph(v);
-                }
-
-            });
-
-            mBtnUsableMotor.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    launchGrid(v);
-                }
-
-
-            });
-
-
-
-
-            mAerator[1].setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    ShowMotorState(1);
-                }
-            });
-            mAerator[2].setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    ShowMotorState(2);
-                }
-            });
-            mAerator[3].setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    ShowMotorState(3);
-                }
-            });
-            mAerator[4].setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    ShowMotorState(4);
-                }
-            });
-            mAerator[5].setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    ShowMotorState(5);
-                }
-            });
-            mAerator[6].setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    ShowMotorState(6);
-                }
-            });
-            mAerator[7].setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    ShowMotorState(7);
-                }
-            });
-            mAerator[8].setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    ShowMotorState(8);
-                }
-            });
-            mAerator[9].setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    ShowMotorState(9);
-                }
-            });
-            mAerator[10].setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    ShowMotorState(10);
-                }
-            });
-            mAerator[11].setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    ShowMotorState(11);
-                }
-            });
-            mAerator[12].setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    ShowMotorState(12);
-                }
-            });
-            mAerator[13].setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    ShowMotorState(13);
-                }
-            });
-            mAerator[14].setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    ShowMotorState(14);
-                }
-            });
-            mAerator[15].setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    ShowMotorState(15);
-                }
-            });
-            mAerator[16].setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    ShowMotorState(16);
-                }
-            });
-            mAerator[17].setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    ShowMotorState(17);
-                }
-            });
-            mAerator[18].setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    ShowMotorState(18);
-                }
-            });
-            mAerator[19].setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    ShowMotorState(19);
-                }
-            });
-            mAerator[20].setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    ShowMotorState(20);
-                }
-            });
-
-        }
-    }
-
-    public void DisplayMotorStatus(){
-
-        int relay_state;
-        int decision_state;
-        int profile_state;
-        int mode_state;
-
-        String str_value;
-        int value;
-        for(int i=1;i<=AERATOR_NUM;i++) {
-
-            str_value = xmlMotor[i].getLastValue();
-
-            if (!xmlMotor[i].getDetails().equals("no"))
-            {
-                //mAerator[i].setText(xmlMotor[i].getDetails());
-            }
-            /*{
-                RelativeLayout.LayoutParams layoutParams = new RelativeLayout.LayoutParams(
-                        RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
-
-
-   ;
-                layoutParams.setMargins(i*10,i*10, 0, 0);
-                mAerator[i].setWidth(20);
-                mAerator[i].setHeight(20);
-                mAerator[i].setLayoutParams(layoutParams);
-                //text.setText("Result ");
-            }*/
+                    btn_name = getResources().getResourceEntryName(view.getId());
+                    switch (btn_name) {
+                        case "btnDo0":
+                            urls[0]=AgWeb.getDoUrl(strWebGetKey,strNetworkIDs[SelectedPond],0);
+                            break;
+                        case "btnDo1":
+                            urls[0]=AgWeb.getDoUrl(strWebGetKey,strNetworkIDs[SelectedPond],1);
+                            break;
+                        case "btnDo2":
+                            urls[0]=AgWeb.getDoUrl(strWebGetKey,strNetworkIDs[SelectedPond],2);
+                            break;
+                        case "btnDo3":
+                            urls[0]=AgWeb.getDoUrl(strWebGetKey,strNetworkIDs[SelectedPond],3);
+                            break;
+                        case "btnPh0":
+                            urls[0]=AgWeb.getPhUrl(strWebGetKey,strNetworkIDs[SelectedPond],0);
+                            break;
+                        case "btnPh1":
+                            urls[0]=AgWeb.getPhUrl(strWebGetKey,strNetworkIDs[SelectedPond],1);
+                            break;
+                        case "btnPh2":
+                            urls[0]=AgWeb.getPhUrl(strWebGetKey,strNetworkIDs[SelectedPond],2);
+                            break;
+                        case "btnPh3":
+                            urls[0]=AgWeb.getPhUrl(strWebGetKey,strNetworkIDs[SelectedPond],3);
+                            break;
+                        case "btnTemperature0":
+                            urls[0]=AgWeb.getTemperatureUrl(strWebGetKey,strNetworkIDs[SelectedPond],0);
+                            break;
+                        case "btnTemperature1":
+                            urls[0]=AgWeb.getTemperatureUrl(strWebGetKey,strNetworkIDs[SelectedPond],1);
+                            break;
+                        case "btnTemperature2":
+                            urls[0]=AgWeb.getTemperatureUrl(strWebGetKey,strNetworkIDs[SelectedPond],2);
+                            break;
+                        case "btnTemperature3":
+                            urls[0]=AgWeb.getTemperatureUrl(strWebGetKey,strNetworkIDs[SelectedPond],3);
+                            break;
 
 
 
-            if(str_value.equals("-")){
-                mAerator[i].setBackgroundColor(Color.WHITE);
-                mAerator[i].setTextColor(Color.WHITE);
-            }else {
-                value = (int) Float.parseFloat(str_value);
-                relay_state = value%100;
-                value/=100;
-                decision_state = value%10;
-                value/=10;
-                profile_state = value%10;
-                value/=10;
-                mode_state = value %10;
 
-                str_value = xmlMotor[i].getLastValue();
-                value = (int) Float.parseFloat(str_value);
-                relay_state = value%100;
-                value/=100;
-                decision_state = value%10;
-                value/=10;
-                profile_state = value%10;
-                value/=10;
-                mode_state = value %10;
-
-                mAerator[i].setTextColor(Color.WHITE);
-
-                if (relay_state == 3) { //relay on
-                    mAerator[i].setBackgroundColor(Color.argb(255, 0, 192, 0));
-                    if (profile_state == 1) {// profile MustOn
-                        mAerator[i].setBackgroundColor(Color.argb(255, 0, 112, 0));
                     }
-                } else if (relay_state == 5) { //relay off
-                    if (profile_state == 2) // profile MustOff
-                        mAerator[i].setBackgroundColor(Color.argb(255, 204, 204, 204));
-                    else if (profile_state == 3) // profile Rest
-                        mAerator[i].setBackgroundColor(Color.argb(255, 64, 64, 128));
-                    else
-                        mAerator[i].setBackgroundColor(Color.BLACK);
-                } else if (str_value.equals("-")) {
-                    mAerator[i].setBackgroundColor(Color.WHITE);
-                } else if (relay_state == 10) { //relay manual on
-                    mAerator[i].setBackgroundColor(Color.YELLOW);
-                    //mAerator[i].setBackgroundColor(Color.argb(255,192,192,192));
-                    //mAerator[i].setTextColor(Color.argb(255,0,192,0));
-                } else if (relay_state == 11) { // relay manual off
-                    mAerator[i].setBackgroundColor(Color.BLUE);
-                    //mAerator[i].setBackgroundColor(Color.argb(255,0,0,192));
-                    //mAerator[i].setBackgroundColor(Color.argb(255,192,192,192));
-                    //mAerator[i].setTextColor(Color.BLACK);
+                    launchDailySingleGraph(view,urls);
+/*
+                    String[] urls = new String[1];
+                    urls[0] = AgWeb.getTemperatureUrl(strWebGetKey,strNetworkIDs[SelectedPond],0);
+                    launchDailySingleGraph(view,urls);
+*/
+                }
+            });
 
-                }else {
-                    mAerator[i].setBackgroundColor(Color.RED);
+            mBtnSensor[i].setOnLongClickListener(new View.OnLongClickListener() {
+
+                @Override
+                public  boolean onLongClick(View view) {
+                    String btn_name;
+                    String[] urls;
+                    Button Btn;
+
+                    Btn = findViewById(view.getId());
+                    if (Btn.getText().equals("-")) return false;
+
+                    btn_name = getResources().getResourceEntryName(view.getId());
+
+                    if(btn_name.contains("Do")) {
+                        urls = new String[3];
+                        urls[0] = AgWeb.getDoUrl(strWebGetKey, strNetworkIDs[SelectedPond], 0);
+                        urls[1] = AgWeb.getDoUrl(strWebGetKey, strNetworkIDs[SelectedPond], 1);
+                        urls[2] = AgWeb.getDoUrl(strWebGetKey, strNetworkIDs[SelectedPond], 2);
+                    }
+                    else if(btn_name.contains("Ph")) {
+                        urls = new String[3];
+                        urls[0] = AgWeb.getPhUrl(strWebGetKey, strNetworkIDs[SelectedPond], 0);
+                        urls[1] = AgWeb.getPhUrl(strWebGetKey, strNetworkIDs[SelectedPond], 1);
+                        urls[2] = AgWeb.getPhUrl(strWebGetKey, strNetworkIDs[SelectedPond], 2);
+                    }
+                    else if(btn_name.contains("Temp")) {
+                        urls = new String[1];
+                        urls[0] = AgWeb.getTemperatureUrl(strWebGetKey, strNetworkIDs[SelectedPond], 0);
+                    }else {
+                        urls = new String[1];
+                        urls[0] = AgWeb.getTemperatureUrl(strWebGetKey, strNetworkIDs[SelectedPond], 0);
+                    }
+
+                    launchDailySingleGraph(view,urls);
+                    return true;
 
                 }
+            });
 
 
-            }
 
 
         }
 
     }
 
-    public void ShowMotorState(int mNo){
-
-        int relay_state;
-        int decision_state;
-        int profile_state;
-        int mode_state;
-        int value;
-        int state;
-        String str_value;
-
-        String[] strRelayState = {
-                "Null","Unknow","Activate","On","Deactivate","Off",
-                "OverCurrent","UnderCurrent","InternalErr","CommError",
-                "ManualOn","ManualOff","mOverCurrent","mUnderCurrent","mInternalError"
-        };
-
-        String[] strDecisionState = {
-                "On","Off","Defer"
-        };
-
-        String[] strProfileState = {
-                "OnDemand","MustOn","MustOff","Rest"
-        };
-
-        String[] strModeState = {
-                "Control","ForceOn","ForceOff","UnCare"
-        };
-
-        if (xmlMotor[mNo]==null) return;
-
-        str_value = xmlMotor[mNo].getLastValue();
-
-        if (str_value.equals("-")) return;
-
-        value = (int) Float.parseFloat(str_value);
-        state = value;
-        relay_state = value%100;
-        value/=100;
-        decision_state = value%10;
-        value/=10;
-        profile_state = value%10;
-        value/=10;
-        mode_state = value %10;
-
-        String str_show;
-
-        /*if (SelectedPond==2) {
-            str_show = "Motor"+ mNo + " S" + state + " "
-                    + strRelayState[relay_state];
-        } else*/ {
-            str_show = "Index"+ (mNo-1) + " S" + state + " m"
-                    + strModeState[mode_state] + " p"
-                    + strProfileState[profile_state] + " d"
-                    + strDecisionState[decision_state] + " r"
-                    + strRelayState[relay_state] + " x"
-                    + xmlMotor[mNo].getPosX() + " y"
-                    + xmlMotor[mNo].getPosY() + " ";
-
-
-
+    @Override
+    protected void onResume() {
+        super.onPostResume();
+        if(mSitesListReady==false) {
+            updateView();
         }
-
-
-        Toast.makeText(this,str_show,Toast.LENGTH_SHORT).show();
-
     }
 
     void updateView() {
 
-        if (checkInternetConnection()==true) {
+        if(mUpdating) return;
+        SharedPreferences sp = getSharedPreferences("PondWatcher", MODE_PRIVATE);
 
+        strWebGetKey = sp.getString("WebGetKey", "no_key");
+        if (checkInternetConnection() == true && strWebGetKey!="no_key") {
+
+            mUpdating=true;
             DownloadFromInternet downloader = new DownloadFromInternet();
             downloader.execute();
-            if ( pondLayoutFragment!= null) {
-                //disable for Aquatic Control Company::Mink
-                pondLayoutFragment.setPondUrl(BaseURL[SelectedPond]);
-                pondLayoutFragment.updateGraph();
-
-            }
-
         }
     }
+
+    public void launchSetting() {
+        Intent intent = new Intent(this, LoginActivity.class);
+        startActivity(intent);
+    }
+
 
     public void launchGraph(View view) {
         String message = BaseURL[SelectedPond];
         Intent intent = new Intent(this, DailyGraphActivity.class);
         intent.putExtra("BASE_URL", message);
         intent.putExtra("SELECTED_POND", SelectedPond);
-        intent.putExtra("GRAPH_GROUP" , "DO_LEVEL");
+        intent.putExtra("GRAPH_GROUP", "DO_LEVEL");
         startActivity(intent);
     }
 
     public void launchTemperatureDailyGraph(View view) {
         String message = BaseURL[SelectedPond];
-        Intent intent = new Intent(this, DailyGraphActivity.class);
+        Intent intent = new Intent(this, DailyGraphActivity2.class);
         intent.putExtra("BASE_URL", message);
         intent.putExtra("SELECTED_POND", SelectedPond);
-        intent.putExtra("GRAPH_GROUP" , "TEMPERATURE");
+        intent.putExtra("GRAPH_GROUP", "TEMPERATURE");
+        startActivity(intent);
+    }
+
+    public void launchDailySingleGraph(View view, String[] urls) {
+
+        int num = urls.length;
+        String strUrlX;
+
+        //String message = BaseURL[SelectedPond];
+        Intent intent = new Intent(this, DailyGraphActivity2.class);
+        intent.putExtra("plots_num", num);
+        for (int i = 0; i < num; i++) {
+            strUrlX = String.format("url%d", i);
+            intent.putExtra(strUrlX, urls[i]);
+        }
         startActivity(intent);
     }
 
@@ -591,7 +362,7 @@ public class MainActivity extends AppCompatActivity
         Intent intent = new Intent(this, DailyGraphActivity.class);
         intent.putExtra("BASE_URL", message);
         intent.putExtra("SELECTED_POND", SelectedPond);
-        intent.putExtra("GRAPH_GROUP" , new String("DO_PROBE"));
+        intent.putExtra("GRAPH_GROUP", new String("DO_PROBE"));
         startActivity(intent);
     }
 
@@ -602,7 +373,7 @@ public class MainActivity extends AppCompatActivity
         Intent intent = new Intent(this, DailyGraphActivity.class);
         intent.putExtra("BASE_URL", message);
         intent.putExtra("SELECTED_POND", SelectedPond);
-        intent.putExtra("GRAPH_GROUP" , new String("AERATOR_STATUS"));
+        intent.putExtra("GRAPH_GROUP", new String("AERATOR_STATUS"));
         startActivity(intent);
     }
 
@@ -630,8 +401,8 @@ public class MainActivity extends AppCompatActivity
         int myInt = savedInstanceState.getInt("MyInt");
         String myString = savedInstanceState.getString("MyString");
         SelectedPond = savedInstanceState.getInt("SelectedPond");
-        if (SelectedPond>=BaseURL.length)
-            SelectedPond=0;
+        if (SelectedPond >= BaseURL.length)
+            SelectedPond = 0;
     }
 
     public boolean checkInternetConnection() {
@@ -641,10 +412,10 @@ public class MainActivity extends AppCompatActivity
         ConnectivityManager cManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
         NetworkInfo nInfo = cManager.getActiveNetworkInfo();
 
-        if(nInfo==null) {
+        if (nInfo == null) {
             Toast.makeText(this, "No Internet connection! Please connect to the Internet.", Toast.LENGTH_LONG).show();
         } else {
-            have_connection=true;
+            have_connection = true;
         }
 
         return have_connection;
@@ -699,48 +470,59 @@ public class MainActivity extends AppCompatActivity
         // Download xml from Internet
         @Override
         protected String doInBackground(String... str) {
-            int count=1;
+            int count = 1;
+            int i;
+            String url;
             try {
-                xmlDoLevel = new SensorInfoXML(url1);
-                xmlDoLevel.fetchXML();
-                xmlOnMotorCount = new SensorInfoXML(url2);
-                xmlOnMotorCount.fetchXML();
 
-                for (int i = 1; i <= AERATOR_NUM; i++) {
-                    xmlMotor[i] = new SensorInfoXML(sMotorUrl[i]);
-                    xmlMotor[i].fetchXML();
-                }
+                if (!mSitesListReady) {
 
-                xmlTemperature = new SensorInfoXML(sTemperatureUrl);
-                xmlTemperature.fetchXML();
+                    SharedPreferences sp = getSharedPreferences("PondWatcher", MODE_PRIVATE);
+                    strWebGetKey = sp.getString("WebGetKey", "no_key");
+                    String ioListUrl = "http://agritronics.nstda.or.th/ws/get.php?appkey=" + strWebGetKey;
+                    xmlIoList = new IOlistXML(ioListUrl);
+                    xmlIoList.fetchXML(ioListUrl);
+                    //progressDialog.setMessage("download sites list");
 
-                xmlUsableMotorCount = new SensorInfoXML(sAvlMotorUrl);
-                xmlUsableMotorCount.fetchXML();
+                    while (!xmlIoList.isFetchComplete()) {
+                        publishProgress("" + count++);
+                        Thread.sleep(1000);
 
-
-
-                while (!xmlDoLevel.isFetchComplete()) {
-                    Thread.sleep(1000);
-                    publishProgress("" + count++);
-                    if(cancel)
-                        break;
-                }
-                while (!xmlOnMotorCount.isFetchComplete())  {
-                    if (cancel)
-                        break;
-                }
-
-                for (int i = 1; i <= AERATOR_NUM; i++) {
-                    while (!xmlMotor[i].isFetchComplete()) {
                         if (cancel)
+                            mUpdating=false;
+                            break;
+                    }
+                    strNetworkIDs = xmlIoList.getNetworkId();
+
+                }
+
+                int s=0;
+                for (i = 0; i < DO_NUM; i++,s++) {
+                    url = AgWeb.getDoUrl(strWebGetKey, strNetworkIDs[SelectedPond], i);
+                    mXmlSensors[s] = new SensorInfoXML(url);
+                    mXmlSensors[s].fetchXML();
+                }
+                for (i = 0; i < PH_NUM; i++,s++) {
+                    url = AgWeb.getPhUrl(strWebGetKey, strNetworkIDs[SelectedPond], i);
+                    mXmlSensors[s] = new SensorInfoXML(url);
+                    mXmlSensors[s].fetchXML();
+                }
+                for (i = 0; i < T_NUM; i++,s++) {
+                    url = AgWeb.getTemperatureUrl(strWebGetKey, strNetworkIDs[SelectedPond], i);
+                    mXmlSensors[s] = new SensorInfoXML(url);
+                    mXmlSensors[s].fetchXML();
+                };
+
+
+                for (i = 0; i < SENSOR_NUM; i++) {
+                    while (!mXmlSensors[i].isFetchComplete()) {
+                        Thread.sleep(1000);
+                        publishProgress("" + count++);
+                        if (cancel)
+                            mUpdating=false;
                             break;
                     }
                 }
-                while (!xmlUsableMotorCount.isFetchComplete()) {
-                    if (cancel)
-                        break;
-                }
-
 
             } catch (Exception e) {
                 Log.e("Error: ", e.getMessage());
@@ -752,7 +534,7 @@ public class MainActivity extends AppCompatActivity
         @Override
         protected void onProgressUpdate(String... progress) {
             // Set progress percentage
-            progressDialog.setMessage("Please wait... "+String.valueOf(progress[0])+" sec");
+            progressDialog.setMessage("Please wait... " + String.valueOf(progress[0]) + " sec");
         }
 
         // Once XML is downloaded
@@ -762,6 +544,8 @@ public class MainActivity extends AppCompatActivity
             //Toast.makeText(getActivity(),"Progress Ended",Toast.LENGTH_LONG).show();
 
             progressDialog.dismiss();
+            mUpdating = false;
+
             // Play the music
             //updateSeriesData();
 
@@ -770,45 +554,48 @@ public class MainActivity extends AppCompatActivity
                 return;
             }
 
-            mBtnDoLevel.setText(xmlDoLevel.getLastValue());
-            mBtnOnMotorCount.setText(xmlOnMotorCount.getLastValue());
-            mBtnTemperature.setText(xmlTemperature.getLastValue());
+            if (!mSitesListReady) {
+                strNetworkIDs = xmlIoList.getNetworkId();
+                strSitesName = xmlIoList.getSiteName();
+                if (strSitesName.length > 0) {
+                    mSitesList.clear();
+                    mSitesList.addAll(new ArrayList<>(Arrays.asList(strSitesName)));
+                    mSitesListAdapter.notifyDataSetChanged();
+                    if(SelectedPond>=strSitesName.length) {
+                        SelectedPond=0;
+                        mSpnSitesList.setSelection(SelectedPond);
+                    }
+
+
+                    ArrayList<String> list = new ArrayList<>(Arrays.asList(strSitesName));
+                    mPref.setStringArrayPref("SitesList", list);
+
+                    mSitesListReady = true;
+                }
+            }
+
+            if(mXmlSensors[0]==null) return;
+
+            for(int i =0;i< SENSOR_NUM;i++) {
+                mBtnSensor[i].setText(mXmlSensors[i].getLastValue());
+            }
 
             SimpleDateFormat date_formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
             Date io_time = new Date();
             Date cur_time = new Date();
             try {
-                io_time = date_formatter.parse(xmlDoLevel.getIoDateTime());
-                if (cur_time.getTime()-io_time.getTime() > 1000*60*60);
-            }    catch (Exception e)
-            {
+                io_time = date_formatter.parse(mXmlSensors[0].getIoDateTime());
+                if (cur_time.getTime() - io_time.getTime() > 1000 * 60 * 60) ;
+            } catch (Exception e) {
                 e.printStackTrace();
             }
-            tv.setText(xmlDoLevel.getIoDateTime());
-            if (cur_time.getTime()-io_time.getTime() > 1000*60*60) {
-                tv.setTextColor(Color.RED);
-                Toast.makeText(getBaseContext(), "Data too old !!! " ,Toast.LENGTH_LONG).show();
+            mTvDateTime.setText(mXmlSensors[0].getIoDateTime());
+            if (cur_time.getTime() - io_time.getTime() > 1000 * 60 * 60) {
+                mTvDateTime.setTextColor(Color.RED);
+                Toast.makeText(getBaseContext(), "Data too old !!! ", Toast.LENGTH_LONG).show();
             } else {
-                tv.setTextColor(Color.BLACK);
+                mTvDateTime.setTextColor(Color.BLACK);
             }
-
-
-            String str = mBtnDoLevel.getText().toString();
-            //float f = Float.parseFloat(str);
-            //if (f < 1) {
-            //    f = f * 20;
-            //}
-            //str = String.format("%.2f", f);
-            //mBtnDoLevel.setText(str);
-
-            for (int i = 1; i <= AERATOR_NUM; i++) {
-                mAerator[i].setText(String.valueOf(i));
-            }
-
-
-            mBtnUsableMotor.setText(xmlUsableMotorCount.getLastValue());
-
-            DisplayMotorStatus();
 
             unlockScreenOrientation();
 
@@ -819,6 +606,12 @@ public class MainActivity extends AppCompatActivity
     public void onFragmentInteraction(Uri uri) {
 
     }
+
+    public static void onChangeUser() {
+        mSitesListReady=false;
+    }
+
+
 
 }
 
